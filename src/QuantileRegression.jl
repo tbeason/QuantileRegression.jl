@@ -2,13 +2,12 @@ using DataFrames
 
 module QuantileRegression
 
-    import DataFrames.DataFrameRegressionModel
-    import DataFrames.coef
-    import Base.LinAlg.BLAS.axpy!
-    export qreg, coef, vcov, stderr, quantiles, IP, IRLS
+    import StatsModels: DataFrameRegressionModel, Formula, coef, @formula
+    import LinearAlgebra: BLAS.axpy!
+    import Statistics.quantile
+    export qreg, coef, vcov, stderr, quantiles, IP, IRLS, @formula
 
-    using DataFrames, Distributions, Base.LinAlg.BLAS
-
+    using DataFrames, Distributions, LinearAlgebra, StatsModels, StatsBase, Statistics
 
     mutable struct QRegModel
         beta::Vector{Float64}
@@ -19,10 +18,10 @@ module QuantileRegression
 
     abstract type Solver end
 
-    immutable IP <: Solver
+    struct IP <: Solver
     end
 
-    immutable IRLS <: Solver
+    struct IRLS <: Solver
         tol
         maxIter
         threshold
@@ -39,7 +38,7 @@ module QuantileRegression
         mr = model_response(mf)
         coef = qreg_coef(mr, mm.m, q, s)
         vcov = qreg_vcov(mr, mm.m, coef, q)
-        stderr = sqrt(diag(vcov))
+        stderr = sqrt.(diag(vcov))
         return DataFrameRegressionModel(QRegModel(coef, vcov, stderr, q), mf, mm)
     end
     qreg(f::Formula, df::AbstractDataFrame, s::Solver) = qreg(f, df, 0.5, s)
